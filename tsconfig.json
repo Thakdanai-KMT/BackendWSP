@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2023",
+    "moduleResolution": "node",
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    "declaration": true,
+    "removeComments": true,
+
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+
+    "sourceMap": true,
+    "incremental": true,
+
+    "skipLibCheck": true,
+    "strict": true,
+
+    "types": ["node", "jest"],
+    "ignoreDeprecations": "6.0"
+  }
+}
