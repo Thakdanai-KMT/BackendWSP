@@ -7,17 +7,19 @@ export class AuthService {
   private readonly supabase: SupabaseClient;
 
   constructor(private readonly configService: ConfigService) {
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseAnonKey =
-      this.configService.get<string>('SUPABASE_ANON_KEY');
+    const supabaseUrl =
+      this.configService.get<string>('SUPABASE_URL');
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const supabaseKey =
+      this.configService.get<string>('SUPABASE_PUBLISHABLE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
       throw new Error('Supabase environment variables are missing');
     }
 
     this.supabase = createClient(
       supabaseUrl,
-      supabaseAnonKey,
+      supabaseKey,
     );
   }
 
@@ -29,7 +31,9 @@ export class AuthService {
       });
 
     if (error) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(
+        'Invalid email or password',
+      );
     }
 
     return {
