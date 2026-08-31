@@ -1,6 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+
+import {
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  SupabaseClient,
+} from '@supabase/supabase-js';
 
 @Injectable()
 export class AuthService {
@@ -11,10 +18,14 @@ export class AuthService {
       this.configService.get<string>('SUPABASE_URL');
 
     const supabaseKey =
-      this.configService.get<string>('SUPABASE_PUBLISHABLE_KEY');
+      this.configService.get<string>(
+        'SUPABASE_PUBLISHABLE_KEY',
+      );
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase environment variables are missing');
+      throw new Error(
+        'Supabase environment variables are missing',
+      );
     }
 
     this.supabase = createClient(
@@ -30,15 +41,22 @@ export class AuthService {
         password,
       });
 
-    if (error) {
+    if (error || !data.session || !data.user) {
       throw new UnauthorizedException(
         'Invalid email or password',
       );
     }
 
     return {
-      user: data.user,
-      session: data.session,
+      message: 'Login successful',
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+      },
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_at: data.session.expires_at,
     };
   }
 }
+
