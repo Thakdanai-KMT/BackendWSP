@@ -1,0 +1,15 @@
+BackendWSP/
+├── src/
+│   ├── main.ts              → จุดเริ่มต้นโปรแกรม (entry point) สร้าง NestJS app instance และเปิด server
+│   ├── app.module.ts        → Root module ของแอป รวบรวม module ย่อยทั้งหมดเข้าด้วยกัน
+│   ├── app.controller.ts    → ตัวอย่าง Controller (รับ HTTP request แล้วส่งต่อให้ Service)
+│   ├── app.service.ts       → ตัวอย่าง Service (business logic)
+│   └── app.controller.spec.ts → ไฟล์ทดสอบ (unit test) ของ controller
+├── test/
+│   └── app.e2e-spec.ts      → ไฟล์ทดสอบแบบ end-to-end
+├── .env                     → ยังไม่มี (จะสร้างใน PHASE 2)
+├── .gitignore                → รายชื่อไฟล์/โฟลเดอร์ที่ไม่ต้อง commit เข้า Git
+├── package.json              → รายชื่อ dependency และ script ต่างๆ ของโปรเจกต์
+├── tsconfig.json             → ตั้งค่าการ compile TypeScript
+├── nest-cli.json              → ตั้งค่าเฉพาะของ Nest CLI (เช่น source root)
+└── README.md
