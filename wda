@@ -1,0 +1,1 @@
+curl -X POST "https://slpifrnlqacyxwaqlzir.supabase.co/auth/v1/token?grant_type=password" -H "Content-Type: application/json" -H "apikey: sb_publishable_ZXRLLgmJK7Zg50D1cJz_hw_zBrmF5zo" -d "{\"email\":\"test@gmail.com\",\"password\":\"test@gmail.com\"}"
