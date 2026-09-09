@@ -8,6 +8,6 @@ import { UsersModule } from '../users/users.module.js';
   imports: [UsersModule],
   controllers: [AuthController],
   providers: [AuthService, AuthGuard],
-  exports: [AuthService, AuthGuard],
+  exports: [AuthService, AuthGuard, UsersModule], // เพิ่ม UsersModule ตรงนี้
 })
 export class AuthModule {}
