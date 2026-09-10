@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -8,6 +8,9 @@ export class CreateProductDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   unit_price: number;
+
+  @IsUUID()
+  category_id: string;
 
   @IsNumber()
   @Min(0)

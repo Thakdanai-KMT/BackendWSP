@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -51,7 +52,7 @@ export class ProductsService {
     return data;
   }
 
-  async create(dto: CreateProductDto) {
+async create(dto: CreateProductDto) {
     const client = this.supabaseService.getClient();
 
     const { data, error } = await client
@@ -61,9 +62,12 @@ export class ProductsService {
       .single();
 
     if (error) {
-      // code 23505 = unique_violation ใน PostgreSQL
       if (error.code === '23505') {
         throw new ConflictException('A product with this data already exists');
+      }
+      // code 23503 = foreign_key_violation (category_id ไม่มีอยู่จริง)
+      if (error.code === '23503') {
+        throw new BadRequestException('The specified category_id does not exist');
       }
       throw new InternalServerErrorException(
         `Failed to create product: ${error.message}`,

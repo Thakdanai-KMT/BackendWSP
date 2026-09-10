@@ -6,6 +6,8 @@ import { SupabaseModule } from './supabase/supabase.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ProductsModule } from './products/products.module.js';
+import { CategoriesModule } from './categories/categories.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { ProductsModule } from './products/products.module.js';
     AuthModule,
     UsersModule,
     ProductsModule,
+    CategoriesModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
