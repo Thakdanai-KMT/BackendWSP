@@ -1,0 +1,12 @@
+import { Module } from '@nestjs/common';
+import { InventoryController } from './inventory.controller.js';
+import { InventoryService } from './inventory.service.js';
+import { SupabaseModule } from '../supabase/supabase.module.js';
+import { AuthModule } from '../auth/auth.module.js';
+
+@Module({
+  imports: [SupabaseModule, AuthModule],
+  controllers: [InventoryController],
+  providers: [InventoryService],
+})
+export class InventoryModule {}
