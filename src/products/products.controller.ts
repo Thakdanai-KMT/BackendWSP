@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -18,7 +19,7 @@ import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 
 @Controller('products')
-@UseGuards(AuthGuard, RolesGuard) // ใช้กับทุก endpoint ใน controller นี้เป็นค่าเริ่มต้น
+@UseGuards(AuthGuard, RolesGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
@@ -29,7 +30,7 @@ export class ProductsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const data = await this.productsService.findOne(id);
     return { data };
   }
@@ -44,14 +45,14 @@ export class ProductsController {
 
   @Patch(':id')
   @Roles('ADMIN', 'MANAGER')
-  async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateProductDto) {
     const data = await this.productsService.update(id, dto);
     return { data };
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'MANAGER')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.remove(id);
   }
 }

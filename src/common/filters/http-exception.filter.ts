@@ -4,11 +4,14 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('ExceptionFilter');
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -24,8 +27,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ? exception.getResponse()
       : null;
 
-    // NestJS's default exception body can be a string or an object like
-    // { message, error }. Normalize both shapes into one consistent format.
     let message: string | string[];
     let error: string;
 
@@ -40,9 +41,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = (exceptionResponse as any).message;
       error = (exceptionResponse as any).error ?? 'Error';
     } else {
-      // ไม่ใช่ HttpException ที่รู้จัก (เช่น error จาก database, unexpected bug)
       message = 'Internal server error';
       error = 'Internal Server Error';
+    }
+
+    // log เฉพาะ error ที่ไม่คาดคิด (500) แบบละเอียด รวม stack trace
+    // ส่วน error ปกติ (400, 401, 403, 404) ไม่ต้อง log เพราะเป็นการทำงานปกติของระบบ ไม่ใช่ bug
+    if (statusCode >= 500) {
+      const stack = exception instanceof Error ? exception.stack : undefined;
+      this.logger.error(
+        `${request.method} ${request.url} - ${statusCode}: ${message}`,
+        stack,
+      );
     }
 
     response.status(statusCode).json({

@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -29,7 +30,7 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const data = await this.categoriesService.findOne(id);
     return { data };
   }
@@ -44,14 +45,17 @@ export class CategoriesController {
 
   @Patch(':id')
   @Roles('ADMIN', 'MANAGER')
-  async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
     const data = await this.categoriesService.update(id, dto);
     return { data };
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'MANAGER')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.categoriesService.remove(id);
   }
 }
