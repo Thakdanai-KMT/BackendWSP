@@ -18,6 +18,7 @@ export class SalesService {
       p_cashier_id: cashierId,
       p_payment_method: dto.payment_method,
       p_items: dto.items,
+      p_customer_id: dto.customer_id ?? null,
     });
 
     if (error) {

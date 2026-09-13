@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-// import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -13,18 +13,18 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { CustomersModule } from './customers/customers.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    // ThrottlerModule.forRoot([
-    //   {
-    //     ttl: 60000, // 60 วินาที (หน่วยเป็น milliseconds)
-    //     limit: 100, // 100 requests ต่อ 60 วินาที
-    //   },
-    // ]),
-    
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     SupabaseModule,
     AuthModule,
     UsersModule,
@@ -33,14 +33,15 @@ import { ReportsModule } from './reports/reports.module.js';
     InventoryModule,
     SalesModule,
     ReportsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [
-    // AppService,
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: ThrottlerGuard,
-    // },
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

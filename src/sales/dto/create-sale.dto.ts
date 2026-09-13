@@ -4,6 +4,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsOptional,
   IsUUID,
   Min,
   ValidateNested,
@@ -21,6 +22,10 @@ class SaleItemInput {
 export class CreateSaleDto {
   @IsIn(['CASH', 'TRANSFER', 'CARD'])
   payment_method: 'CASH' | 'TRANSFER' | 'CARD';
+
+  @IsUUID()
+  @IsOptional()
+  customer_id?: string;
 
   @IsArray()
   @ArrayMinSize(1)

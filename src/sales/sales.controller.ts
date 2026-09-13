@@ -10,7 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-// import { Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
@@ -27,7 +27,7 @@ export class SalesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Roles('ADMIN', 'MANAGER', 'CASHIER')
-  // @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async create(@Body() dto: CreateSaleDto, @Req() request: Request) {
     const user = (request as any).user as UserProfile;
     const data = await this.salesService.create(dto, user.id);
