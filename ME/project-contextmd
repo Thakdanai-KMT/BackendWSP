@@ -1,0 +1,88 @@
+# BackendWSP — สรุปความคืบหน้าวันที่ 13 กันยายน 2026
+
+> เอกสารนี้สรุปเฉพาะสิ่งที่ทำในวันนี้ ใช้เป็น context เสริมควบคู่กับไฟล์หลัก `BackendWSP-project-context.md` (ที่มีภาพรวมทั้งโปรเจกต์) — เหมาะสำหรับวางต่อท้ายไฟล์หลักตอนเปิดแชทใหม่ เพื่อให้ AI รู้ว่า "ตั้งแต่ไฟล์หลักถูกเขียน มีอะไรเพิ่มเข้ามาอีกบ้าง"
+
+---
+
+## งานที่ทำสำเร็จวันนี้
+
+### 1. แก้ปัญหาเวอร์ชัน NestJS ที่ค้างมา — ตัดสินใจอยู่กับ NestJS 12
+
+- พบว่าโปรเจกต์เลื่อนจาก NestJS 11 (ตั้งใจไว้ตอนเริ่ม) ไปเป็น **NestJS 12.0.1** โดยไม่ตั้งใจ (เกิดจากติดตั้ง `@nestjs/config`, `@nestjs/mapped-types`, `@nestjs/schedule` แบบไม่ล็อกเวอร์ชัน)
+- NestJS 12 เพิ่งออกวันที่ 27 ส.ค. 2026 (ใหม่มาก) ทำให้ `@nestjs/throttler@6.5.0` ยังไม่รองรับอย่างเป็นทางการ (peer dep ระบุแค่ v7-v11)
+- **ตัดสินใจ:** อยู่กับ NestJS 12 ต่อ ไม่ downgrade — ติดตั้ง `@nestjs/throttler` ด้วย `--legacy-peer-deps` (มีเหตุผลรองรับชัดเจน ไม่ใช่การใช้พร่ำเพรื่อ)
+- **ข้อควรระวังต่อไป:** อาจเจอ `ERESOLVE` error แบบเดียวกันอีกเวลาติดตั้ง NestJS ecosystem package ใหม่ในอนาคต จนกว่า ecosystem จะตามทัน v12
+
+### 2. Rate Limiting — เสร็จสมบูรณ์
+
+- ติดตั้ง `@nestjs/throttler@6.5.0` (`--legacy-peer-deps`)
+- Global limit: **100 requests/นาที** ผ่าน `ThrottlerModule.forRoot()` + `APP_GUARD` ใน `app.module.ts`
+- Limit เข้มงวดกว่าเฉพาะจุด: **10 requests/นาที** บน `POST /api/sales` ผ่าน `@Throttle({ default: { limit: 10, ttl: 60000 } })`
+- ทดสอบผ่านครบ (ลดค่าชั่วคราวเป็น 2 เพื่อทดสอบเร็ว → ยืนยัน `429 Too Many Requests` ทำงานถูกต้อง → ปรับกลับเป็น 10)
+- **เจอปัญหาระหว่างทาง 2 ครั้ง:** โค้ดที่วางไว้ใน `app.module.ts` และ `sales.controller.ts` มีบาง import/decorator ถูก comment ค้างไว้โดยไม่ตั้งใจ (`// import { Throttle }...`) วิธีแก้คือเช็คเนื้อหาไฟล์จริงด้วย `type <file>` เทียบกับโค้ดที่ควรจะเป็นเสมอเมื่อ behavior ไม่ตรงกับที่คาด (บทเรียนนี้บันทึกไว้ในไฟล์หลักแล้ว)
+
+### 3. Customers Module — สร้างใหม่ทั้งหมด เสร็จสมบูรณ์
+
+**Database:**
+```sql
+create table public.customers (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  phone text,
+  email text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index idx_customers_phone on public.customers (phone);
+
+alter table public.sales
+  add column customer_id uuid references public.customers(id);
+```
+
+**การตัดสินใจสำคัญ:**
+- `full_name` บังคับ, `phone`/`email` optional
+- `sales.customer_id` เป็น **optional** — รองรับขายแบบ walk-in (ไม่ระบุลูกค้า) ได้ตามปกติ
+- RBAC: **ทุก role ที่ login สร้างลูกค้าใหม่ได้** (เหตุผล: CASHIER มักเป็นคนกรอกข้อมูลลูกค้าตอนขายหน้าร้าน) แต่แก้ไข/ลบ จำกัดแค่ ADMIN/MANAGER
+
+**Endpoints ที่สร้าง:**
+- `GET /api/customers?search=...` — ค้นหาด้วยชื่อหรือเบอร์โทร (ilike, case-insensitive, partial match)
+- `GET /api/customers/:id`
+- `POST /api/customers` (ทุก role)
+- `PATCH /api/customers/:id` (ADMIN, MANAGER)
+- `DELETE /api/customers/:id` (ADMIN, MANAGER — ถูกบล็อกถ้ายังมี sales อ้างอิงอยู่ ผ่าน FK error 23503 → 409 Conflict)
+
+**Integration กับ Sales:**
+- เพิ่ม `customer_id` (optional) ใน `CreateSaleDto`
+- แก้ RPC function `create_sale` เพิ่มพารามิเตอร์ `p_customer_id uuid default null` (ใส่เป็นตัวสุดท้ายเสมอ เพราะ PostgreSQL บังคับให้พารามิเตอร์ที่มี default อยู่หลังพารามิเตอร์ที่ไม่มี default)
+- ทดสอบผ่านครบ: ขายแบบผูกลูกค้า (`customer_id` มีค่า) และขายแบบ walk-in (`customer_id: null`) ทำงานถูกต้องทั้งคู่
+
+### 4. บทเรียนใหม่ที่เจอวันนี้ (เพิ่มเติมจากไฟล์หลัก)
+
+- **CMD บน Windows มีปัญหา encoding กับภาษาไทยใน URL query string** — พิมพ์ `?search=สมหญิง` ตรงๆ ไม่ทำงาน (ไม่มี error แต่ก็ไม่มี response กลับมาเลย แม้จะรัน `chcp 65001` ก่อนแล้วก็ตาม) **วิธีแก้ที่ได้ผล:** ใช้ `curl -G --data-urlencode "search=สมหญิง" ...` แทนการพิมพ์ query string ตรงๆ ในสาย URL — จำไว้ใช้เป็นมาตรฐานทุกครั้งที่ต้องทดสอบด้วยข้อความภาษาไทยผ่าน curl
+- **PostgreSQL function ที่มีพารามิเตอร์ default ต้องวางไว้ท้ายสุดเสมอ** เวลาแก้ function เดิมเพิ่มพารามิเตอร์ใหม่ (เจอตอนแก้ `create_sale` เพิ่ม `p_customer_id`)
+
+---
+
+## สถานะล่าสุด ณ สิ้นวันนี้
+
+**Business module ที่เสร็จแล้ว:** Products, Categories, Inventory, Sales (+ Cancel), Reports + Email (manual + scheduled), Customers (+ ผูกกับ Sales)
+
+**Infrastructure ที่เสร็จแล้ว:** ครบทุกอย่างจาก PHASE 0-12 เดิม บวก Application Logging และ Rate Limiting
+
+**เหลือตามแผนเดิม (ยังไม่ได้ทำ):**
+- ❌ Promotions — โปรโมชั่น/ส่วนลด
+- ❌ Shifts — กะการทำงานพนักงาน
+- ❌ Audit Logs — บันทึกการกระทำสำคัญในระบบ (แยกจาก inventory_movements)
+- ❌ Settings — ค่าตั้งค่าระบบ
+
+**Checklist ก่อนขึ้น production ที่ยังค้าง** (ดูรายละเอียดเต็มในไฟล์หลัก):
+- ลด Supabase JWT expiry กลับเป็นค่าสั้น + ทำ refresh token flow ฝั่ง Frontend
+- Verify domain จริงกับ Resend (ตอนนี้ใช้ test domain)
+- คอยระวังปัญหา `--legacy-peer-deps` ซ้ำจาก NestJS 12 ตอนติดตั้ง package ใหม่ในอนาคต
+- เปลี่ยนค่า CORS origin เป็น domain จริงของ Frontend ตอน deploy
+
+---
+
+## วิธีใช้เอกสารนี้
+
+เปิดแชทใหม่ → วางเนื้อหาไฟล์หลัก (`BackendWSP-project-context.md`) ก่อน แล้ววางไฟล์นี้ต่อท้าย → บอก AI ว่า "ช่วยทำต่อจาก [Promotions/Shifts/Audit Logs/Settings]" — AI จะเข้าใจสถานะล่าสุดทั้งหมดทันที

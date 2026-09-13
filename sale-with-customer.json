@@ -1,0 +1,7 @@
+{
+  "payment_method": "CASH",
+  "customer_id": "cbf54416-be69-4fa4-a7d1-a4b72a640ce5",
+  "items": [
+    { "product_id": "89c11b2a-214c-4195-aa9c-40e28c0e15aa", "quantity": 1 }
+  ]
+}
