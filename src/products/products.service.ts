@@ -1,17 +1,20 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async findAll() {
     const client = this.supabaseService.getClient();
@@ -52,7 +55,7 @@ export class ProductsService {
     return data;
   }
 
-async create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto) {
     const client = this.supabaseService.getClient();
 
     const { data, error } = await client
@@ -65,9 +68,8 @@ async create(dto: CreateProductDto) {
       if (error.code === '23505') {
         throw new ConflictException('A product with this data already exists');
       }
-      // code 23503 = foreign_key_violation (category_id ไม่มีอยู่จริง)
       if (error.code === '23503') {
-        throw new BadRequestException('The specified category_id does not exist');
+        throw new ConflictException('The specified category_id does not exist');
       }
       throw new InternalServerErrorException(
         `Failed to create product: ${error.message}`,
@@ -77,9 +79,8 @@ async create(dto: CreateProductDto) {
     return data;
   }
 
-  async update(id: string, dto: UpdateProductDto) {
-    // เช็คก่อนว่ามี product นี้อยู่จริงหรือไม่ (จะ throw NotFoundException ถ้าไม่เจอ)
-    await this.findOne(id);
+  async update(id: string, dto: UpdateProductDto, actorId: string) {
+    const oldValue = await this.findOne(id);
 
     const client = this.supabaseService.getClient();
 
@@ -95,6 +96,16 @@ async create(dto: CreateProductDto) {
         `Failed to update product: ${error.message}`,
       );
     }
+
+    // fire-and-forget: ไม่ await ให้บล็อก response กลับไปหา client
+    this.auditService.log({
+      actorId,
+      action: 'UPDATE',
+      resourceType: 'product',
+      resourceId: id,
+      oldValue,
+      newValue: data,
+    });
 
     return data;
   }
