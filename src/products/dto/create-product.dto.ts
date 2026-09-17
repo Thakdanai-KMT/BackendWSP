@@ -9,6 +9,10 @@ export class CreateProductDto {
   @Min(0)
   unit_price: number;
 
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cost_price: number;
+
   @IsUUID()
   category_id: string;
 

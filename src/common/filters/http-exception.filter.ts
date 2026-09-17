@@ -29,6 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     let message: string | string[];
     let error: string;
+    let extraFields: Record<string, unknown> = {};
 
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
@@ -38,15 +39,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       typeof exceptionResponse === 'object' &&
       'message' in exceptionResponse
     ) {
-      message = (exceptionResponse as any).message;
-      error = (exceptionResponse as any).error ?? 'Error';
+      const { message: msg, error: err, statusCode: _sc, ...rest } =
+        exceptionResponse as any;
+      message = msg;
+      error = err ?? (exception instanceof HttpException ? exception.name : 'Error');
+      extraFields = rest; // เก็บ field พิเศษอื่นๆ ที่เหลือไว้ทั้งหมด
     } else {
       message = 'Internal server error';
       error = 'Internal Server Error';
     }
 
-    // log เฉพาะ error ที่ไม่คาดคิด (500) แบบละเอียด รวม stack trace
-    // ส่วน error ปกติ (400, 401, 403, 404) ไม่ต้อง log เพราะเป็นการทำงานปกติของระบบ ไม่ใช่ bug
     if (statusCode >= 500) {
       const stack = exception instanceof Error ? exception.stack : undefined;
       this.logger.error(
@@ -59,6 +61,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode,
       message,
       error,
+      ...extraFields,
       timestamp: new Date().toISOString(),
       path: request.url,
     });
