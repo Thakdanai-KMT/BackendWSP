@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
+import { SettingsModule } from './settings/settings.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PromotionsModule } from './promotions/promotions.module.js';
     CustomersModule,
     AuditModule,
     PromotionsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [
