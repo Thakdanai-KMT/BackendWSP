@@ -7,6 +7,6 @@ export class AuthController {
   @Get('me')
   @UseGuards(AuthGuard)
   getMe(@Req() request: Request) {
-    return { user: (request as any).user };
+    return { data: (request as any).user };
   }
 }
