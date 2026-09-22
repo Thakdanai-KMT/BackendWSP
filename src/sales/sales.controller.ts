@@ -23,11 +23,16 @@ import type { UserProfile } from '../users/dto/user-profile.dto.js';
 @UseGuards(AuthGuard, RolesGuard)
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
-
+  @Get()
+  async findAll() {
+    const { data, total } = await this.salesService.findAll();
+    return { data, meta: { total } };
+  }
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Roles('ADMIN', 'MANAGER', 'CASHIER')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  
   async create(@Body() dto: CreateSaleDto, @Req() request: Request) {
     const user = (request as any).user as UserProfile;
     const data = await this.salesService.create(dto, user.id);

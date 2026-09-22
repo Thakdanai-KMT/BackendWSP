@@ -10,7 +10,22 @@ import type { CreateSaleDto } from './dto/create-sale.dto.js';
 @Injectable()
 export class SalesService {
   constructor(private readonly supabaseService: SupabaseService) {}
+  async findAll() {
+    const client = this.supabaseService.getClient();
 
+    const { data, error, count } = await client
+      .from('sales')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new InternalServerErrorException(
+        `Failed to fetch sales: ${error.message}`,
+      );
+    }
+
+    return { data: data ?? [], total: count ?? 0 };
+  }
   async create(dto: CreateSaleDto, cashierId: string) {
     const client = this.supabaseService.getClient();
 
