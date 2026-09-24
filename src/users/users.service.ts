@@ -52,4 +52,18 @@ export class UsersService {
 
     return created as UserProfile;
   }
+    async findAll(): Promise<UserProfile[]> {
+    const client = this.supabaseService.getClient();
+
+    const { data, error } = await client
+      .from('users')
+      .select('*')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to fetch users: ${error.message}`);
+    }
+
+    return (data ?? []) as UserProfile[];
+  }
 }
