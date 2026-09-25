@@ -37,6 +37,8 @@ async function bootstrap() {
 
   // Render กำหนด PORT ผ่าน environment variable เองอัตโนมัติ
   // ห้าม hardcode 3000 ไว้ ไม่งั้น service จะ deploy ไม่ขึ้น
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();
