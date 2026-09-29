@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -38,7 +39,19 @@ export class SalesController {
     const data = await this.salesService.create(dto, user.id);
     return { data };
   }
-
+    @Get('top-products')
+  async topProducts(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('limit') limit?: string,
+  ) {
+    const data = await this.salesService.getTopProducts(
+      from,
+      to,
+      limit ? Number(limit) : 5,
+    );
+    return { data };
+  }
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const data = await this.salesService.findOne(id);

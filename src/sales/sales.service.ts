@@ -26,6 +26,78 @@ export class SalesService {
 
     return { data: data ?? [], total: count ?? 0 };
   }
+    async getTopProducts(from: string, to: string, limit: number) {
+    const client = this.supabaseService.getClient();
+
+    // Step 1: หาบิลที่ไม่ถูกยกเลิก ในช่วงวันที่ที่เลือก
+    const { data: salesInRange, error: salesError } = await client
+      .from('sales')
+      .select('id')
+      .neq('status', 'CANCELLED')
+      .gte('created_at', `${from}T00:00:00.000Z`)
+      .lte('created_at', `${to}T23:59:59.999Z`);
+
+    if (salesError) {
+      throw new InternalServerErrorException(
+        `Failed to fetch sales for top products: ${salesError.message}`,
+      );
+    }
+
+    const saleIds = (salesInRange ?? []).map((s) => s.id);
+    if (saleIds.length === 0) return [];
+
+    // Step 2: ดึงรายการสินค้าทั้งหมดของบิลเหล่านั้น
+    const { data: items, error: itemsError } = await client
+      .from('sale_items')
+      .select('product_id, quantity, unit_price')
+      .in('sale_id', saleIds);
+
+    if (itemsError) {
+      throw new InternalServerErrorException(
+        `Failed to fetch sale items for top products: ${itemsError.message}`,
+      );
+    }
+
+    // Step 3: รวมยอดตาม product_id
+    const totals = new Map<string, { quantity: number; revenue: number }>();
+    for (const item of items ?? []) {
+      const existing = totals.get(item.product_id) ?? {
+        quantity: 0,
+        revenue: 0,
+      };
+      existing.quantity += item.quantity;
+      existing.revenue += item.quantity * item.unit_price;
+      totals.set(item.product_id, existing);
+    }
+
+    // Step 4: เอาแค่ top N แล้วค่อยดึงชื่อสินค้ามาแนบ (ลด query ไม่ต้องดึงทุกตัว)
+    const ranked = [...totals.entries()]
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, limit);
+
+    const productIds = ranked.map(([id]) => id);
+    const { data: products, error: productsError } = await client
+      .from('products')
+      .select('id, product_name')
+      .in('id', productIds);
+
+    if (productsError) {
+      throw new InternalServerErrorException(
+        `Failed to fetch products for top products: ${productsError.message}`,
+      );
+    }
+
+    const nameById = new Map(
+      (products ?? []).map((p) => [p.id, p.product_name]),
+    );
+
+    return ranked.map(([productId, stat]) => ({
+      product_id: productId,
+      product_name: nameById.get(productId) ?? '(ไม่พบสินค้า)',
+      quantity_sold: stat.quantity,
+      revenue: stat.revenue,
+    }));
+  }
   async create(dto: CreateSaleDto, cashierId: string) {
     const client = this.supabaseService.getClient();
 
