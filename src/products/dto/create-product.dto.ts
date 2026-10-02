@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -24,4 +24,13 @@ export class CreateProductDto {
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
+
+  @IsUUID()
+  @IsOptional()
+  bundle_of_product_id?: string;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  bundle_quantity?: number;
 }
