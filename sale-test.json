@@ -1,1 +1,9 @@
-{"payment_method":"CASH","items":[{"product_id":"89c11b2a-214c-4195-aa9c-40e28c0e15aa","quantity":1}]} 
+{
+  "payment_method": "CASH",
+  "items": [
+    {
+      "product_id": "67e4841b-6328-48e9-b29a-c09e86a50032",
+      "quantity": 1
+    }
+  ]
+}
