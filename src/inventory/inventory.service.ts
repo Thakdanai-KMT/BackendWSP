@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service.js';
 import type { CreateMovementDto } from './dto/create-movement.dto.js';
 
@@ -8,6 +8,31 @@ export class InventoryService {
 
   async createMovement(dto: CreateMovementDto, createdBy: string) {
     const client = this.supabaseService.getClient();
+
+    // สินค้าแพ็กไม่มีสต็อกของตัวเอง (คำนวณจากสินค้าฐานเสมอ)
+    // ต้องเช็คก่อนเรียก RPC เพื่อกันไม่ให้มีใครไปปรับ stock_quantity ของแพ็กตรงๆ
+    // ซึ่งจะทำให้ตัวเลขไม่สอดคล้องกับสินค้าฐานทันที
+    const { data: product, error: productError } = await client
+      .from('products')
+      .select('id, product_name, bundle_of_product_id')
+      .eq('id', dto.product_id)
+      .maybeSingle();
+
+    if (productError) {
+      throw new InternalServerErrorException(
+        `Failed to look up product: ${productError.message}`,
+      );
+    }
+    if (!product) {
+      throw new NotFoundException(`Product with id ${dto.product_id} not found`);
+    }
+    if (product.bundle_of_product_id) {
+      throw new BadRequestException(
+        `"${product.product_name}" is a bundle/pack product and has no stock of its own. ` +
+          `Its stock is calculated automatically from the base product. ` +
+          `Adjust the base product's stock instead.`,
+      );
+    }
 
     const { data, error } = await client.rpc('create_inventory_movement', {
       p_product_id: dto.product_id,
