@@ -196,19 +196,21 @@ export class ProductsService {
 
     const client = this.supabaseService.getClient();
 
-    const { error } = await client.from('products').delete().eq('id', id);
+    // ไม่ลบแถวจริง เพราะ sale_items / แพ็กลูก / ประวัติสต็อกยังอ้าง product_id อยู่
+    // ปิดการใช้งานพอ ใบเสร็จเก่าและแพ็กที่ผูกอยู่จึงไม่พัง
+    const { data, error } = await client
+      .from('products')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
 
     if (error) {
-      if (error.code === '23503') {
-        throw new ConflictException(
-          'Cannot delete this product because other products are bundled from it. Delete or re-link those bundle products first.',
-        );
-      }
       throw new InternalServerErrorException(
-        `Failed to delete product: ${error.message}`,
+        `Failed to deactivate product: ${error.message}`,
       );
     }
 
-    return { message: 'Product deleted successfully' };
+    return { message: 'Product deactivated successfully', data };
   }
 }
