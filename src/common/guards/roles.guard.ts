@@ -26,6 +26,12 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
+    // VIEWER (โหมดดูตัวอย่าง) เห็นได้ทุก endpoint เหมือน ADMIN
+    // ส่วนการเขียนข้อมูลถูกบล็อกแล้วที่ AuthGuard ก่อนมาถึงตรงนี้
+    if (user.role === 'VIEWER') {
+      return true;
+    }
+
     return requiredRoles.includes(user.role);
   }
 }
