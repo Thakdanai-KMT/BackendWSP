@@ -4,6 +4,8 @@ import { RolesGuard } from '../common/guards/roles.guard.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { ReportsService } from './reports.service.js';
 import { EmailService } from '../email/email.service.js';
+import { SalesSummaryQueryDto } from './dto/sales-summary-query.dto.js';
+import { todayInThailand } from '../common/utils/thai-date.js';
 
 @Controller('reports')
 @UseGuards(AuthGuard, RolesGuard)
@@ -16,15 +18,22 @@ export class ReportsController {
   @Get('daily-sales')
   @Roles('ADMIN', 'MANAGER')
   async getDailySales(@Query('date') date?: string) {
-    const targetDate = date ?? new Date().toISOString().split('T')[0];
+    const targetDate = date ?? todayInThailand();
     const data = await this.reportsService.getDailySalesReport(targetDate);
+    return { data };
+  }
+
+  @Get('sales-summary')
+  @Roles('ADMIN', 'MANAGER')
+  async getSalesSummary(@Query() query: SalesSummaryQueryDto) {
+    const data = await this.reportsService.getSalesSummary(query.from, query.to);
     return { data };
   }
 
   @Post('daily-sales/send')
   @Roles('ADMIN', 'MANAGER')
   async sendDailySales(@Query('date') date?: string) {
-    const targetDate = date ?? new Date().toISOString().split('T')[0];
+    const targetDate = date ?? todayInThailand();
     const data = await this.emailService.sendDailySalesReport(targetDate);
     return { data };
   }
