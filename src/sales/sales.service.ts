@@ -3,9 +3,11 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service.js';
 import type { CreateSaleDto } from './dto/create-sale.dto.js';
+import { isValidIsoDate } from '../common/utils/thai-date.js';
 
 @Injectable()
 export class SalesService {
@@ -99,6 +101,15 @@ export class SalesService {
     }));
   }
   async create(dto: CreateSaleDto, cashierId: string) {
+    const isCredit = dto.payment_method === 'CREDIT';
+
+    if (isCredit && !dto.customer_id) {
+      throw new BadRequestException('การขายเชื่อต้องเลือกลูกค้า');
+    }
+    if (dto.due_date && !isValidIsoDate(dto.due_date)) {
+      throw new BadRequestException('วันกำหนดชำระไม่ถูกต้อง');
+    }
+
     const client = this.supabaseService.getClient();
 
     const { data, error } = await client.rpc('create_sale', {
@@ -106,6 +117,8 @@ export class SalesService {
       p_payment_method: dto.payment_method,
       p_items: dto.items,
       p_customer_id: dto.customer_id ?? null,
+      p_due_date: isCredit ? (dto.due_date ?? null) : null,
+      p_credit_note: isCredit ? (dto.credit_note ?? null) : null,
     });
 
     if (error) {
@@ -125,6 +138,7 @@ export class SalesService {
 
     if (error) {
       this.handleSaleError(error);
+      
     }
 
     return data;
@@ -166,6 +180,7 @@ export class SalesService {
   private handleSaleError(error: { message: string }): never {
     // ข้อความ error ที่มาจาก `raise exception` ใน PostgreSQL function
     // จะอยู่ใน error.message ตรงๆ พร้อม prefix ที่เราตั้งชื่อไว้
+    
     if (error.message.includes('INSUFFICIENT_STOCK')) {
       throw new BadRequestException(error.message);
     }
@@ -180,6 +195,24 @@ export class SalesService {
     }
     if (error.message.includes('ALREADY_CANCELLED')) {
       throw new BadRequestException(error.message);
+    }
+        if (error.message.includes('CREDIT_NOT_ALLOWED')) {
+      throw new ForbiddenException(
+        'เฉพาะผู้ดูแลระบบและผู้จัดการเท่านั้นที่ขายเชื่อได้',
+      );
+    }
+    if (error.message.includes('CREDIT_REQUIRES_CUSTOMER')) {
+      throw new BadRequestException('การขายเชื่อต้องเลือกลูกค้า');
+    }
+    if (error.message.includes('CUSTOMER_NOT_FOUND')) {
+      throw new BadRequestException('ไม่พบลูกค้าที่เลือก');
+    }
+    if (error.message.includes('INVALID_DUE_DATE')) {
+      throw new BadRequestException('วันกำหนดชำระต้องไม่ใช่วันที่ผ่านมาแล้ว');
+    }
+    if (error.message.includes('CREDIT_LIMIT_EXCEEDED')) {
+      const detail = error.message.replace(/^CREDIT_LIMIT_EXCEEDED:\s*/, '');
+      throw new BadRequestException(`เกินวงเงินเครดิตของลูกค้า: ${detail}`);
     }
     throw new InternalServerErrorException(
       `Sale operation failed: ${error.message}`,

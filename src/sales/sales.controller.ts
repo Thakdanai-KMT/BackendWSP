@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -33,9 +34,20 @@ export class SalesController {
   @HttpCode(HttpStatus.CREATED)
   @Roles('ADMIN', 'MANAGER', 'CASHIER')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  
   async create(@Body() dto: CreateSaleDto, @Req() request: Request) {
     const user = (request as any).user as UserProfile;
+
+    // ขายเชื่อ: เฉพาะผู้ดูแลระบบและผู้จัดการ (ฐานข้อมูลตรวจซ้ำอีกชั้น)
+    if (
+      dto.payment_method === 'CREDIT' &&
+      user.role !== 'ADMIN' &&
+      user.role !== 'MANAGER'
+    ) {
+      throw new ForbiddenException(
+        'เฉพาะผู้ดูแลระบบและผู้จัดการเท่านั้นที่ขายเชื่อได้',
+      );
+    }
+
     const data = await this.salesService.create(dto, user.id);
     return { data };
   }
