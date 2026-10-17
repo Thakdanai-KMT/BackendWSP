@@ -56,7 +56,12 @@ export class CustomersController {
     const data = await this.customersService.getLedger(id);
     return { data };
   }
-
+  @Get(':id/credit')
+  @Roles('ADMIN', 'MANAGER')
+  async getCreditOverview(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.customersService.getCreditOverview(id);
+    return { data };
+  }
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Audit('CREATE', 'customer')

@@ -41,7 +41,44 @@ export interface LedgerEntry {
   void_reason: string | null;
   running_balance: number;
 }
+export interface CreditBillItem {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
 
+export interface CreditBill {
+  sale_id: string;
+  created_at: string;
+  total_amount: number;
+  due_date: string | null;
+  credit_note: string | null;
+  sale_status: 'COMPLETED' | 'CANCELLED';
+  payment_status: 'PAID' | 'PARTIAL' | 'UNPAID' | 'CANCELLED';
+  paid_amount: number;
+  remaining: number;
+  is_overdue: boolean;
+  days_overdue: number;
+  settled_at: string | null;
+  items: CreditBillItem[];
+}
+
+interface CreditBillRow {
+  sale_id: string;
+  created_at: string;
+  total_amount: number | string;
+  due_date: string | null;
+  credit_note: string | null;
+  sale_status: 'COMPLETED' | 'CANCELLED';
+  payment_status: 'PAID' | 'PARTIAL' | 'UNPAID' | 'CANCELLED';
+  paid_amount: number | string;
+  remaining: number | string;
+  is_overdue: boolean;
+  days_overdue: number;
+  settled_at: string | null;
+  items: CreditBillItem[] | null;
+}
 const toCents = (n: number) => Math.round(n * 100);
 
 @Injectable()
@@ -405,5 +442,144 @@ export class CustomersService {
 
     const summary = await this.getBalance(customerId);
     return { payment: data, summary };
+  }
+    // ภาพรวมเครดิตของลูกค้าหนึ่งคน: รายบิล ประวัติรับชำระ พฤติกรรมการชำระ
+  async getCreditOverview(id: string) {
+    const customer = await this.findOne(id);
+    const client = this.supabaseService.getClient();
+
+    const [billsRes, paymentsRes, summary] = await Promise.all([
+      client.rpc('get_customer_credit_bills', { p_customer_id: id }),
+      client
+        .from('customer_payments')
+        .select('id, paid_at, amount, method, note, status, void_reason, received_by')
+        .eq('customer_id', id)
+        .order('paid_at', { ascending: false }),
+      this.getBalance(id),
+    ]);
+
+    if (billsRes.error) {
+      throw new InternalServerErrorException(
+        `Failed to fetch credit bills: ${billsRes.error.message}`,
+      );
+    }
+    if (paymentsRes.error) {
+      throw new InternalServerErrorException(
+        `Failed to fetch payments: ${paymentsRes.error.message}`,
+      );
+    }
+
+    const bills: CreditBill[] = ((billsRes.data ?? []) as CreditBillRow[]).map(
+      (b) => ({
+        sale_id: b.sale_id,
+        created_at: b.created_at,
+        total_amount: Number(b.total_amount),
+        due_date: b.due_date ?? null,
+        credit_note: b.credit_note ?? null,
+        sale_status: b.sale_status,
+        payment_status: b.payment_status,
+        paid_amount: Number(b.paid_amount),
+        remaining: Number(b.remaining),
+        is_overdue: b.is_overdue,
+        days_overdue: Number(b.days_overdue),
+        settled_at: b.settled_at ?? null,
+        items: (b.items ?? []).map((i) => ({
+          product_name: i.product_name,
+          quantity: Number(i.quantity),
+          unit_price: Number(i.unit_price),
+          subtotal: Number(i.subtotal),
+        })),
+      }),
+    );
+
+    // ชื่อผู้รับชำระ (จำนวนผู้รับน้อย จึงดึงด้วย in ได้ปลอดภัย)
+    const rawPayments = paymentsRes.data ?? [];
+    const receiverIds = [
+      ...new Set(rawPayments.map((p) => p.received_by as string)),
+    ];
+    let names = new Map<string, string>();
+    if (receiverIds.length > 0) {
+      const { data: users } = await client
+        .from('users')
+        .select('id, full_name')
+        .in('id', receiverIds);
+      names = new Map(
+        (users ?? []).map((u) => [u.id as string, u.full_name as string]),
+      );
+    }
+
+    const payments = rawPayments.map((p) => ({
+      id: p.id as string,
+      paid_at: p.paid_at as string,
+      amount: Number(p.amount),
+      method: p.method as string,
+      note: (p.note ?? null) as string | null,
+      status: p.status as string,
+      void_reason: (p.void_reason ?? null) as string | null,
+      received_by_name: names.get(p.received_by as string) ?? null,
+    }));
+
+    // พฤติกรรมการชำระ: นับเฉพาะบิลที่ขายสำเร็จ
+    const completed = bills.filter((b) => b.sale_status === 'COMPLETED');
+    const paidBills = completed.filter((b) => b.payment_status === 'PAID');
+    const openBills = completed.filter((b) => b.payment_status !== 'PAID');
+    const overdueBills = openBills.filter((b) => b.is_overdue);
+    const dueEnd = (d: string) => Date.parse(`${d}T23:59:59.999+07:00`);
+
+    let paidOnTime = 0;
+    let paidLate = 0;
+    let daysSum = 0;
+    let daysCount = 0;
+    for (const b of paidBills) {
+      if (!b.settled_at) continue;
+      const settled = Date.parse(b.settled_at);
+      daysSum += (settled - Date.parse(b.created_at)) / 86_400_000;
+      daysCount += 1;
+      if (b.due_date) {
+        if (settled <= dueEnd(b.due_date)) paidOnTime += 1;
+        else paidLate += 1;
+      }
+    }
+
+    const activePayments = payments.filter((p) => p.status === 'ACTIVE');
+    const stats = {
+      credit_bills_total: completed.length,
+      paid_bills: paidBills.length,
+      open_bills: openBills.length,
+      overdue_bills: overdueBills.length,
+      overdue_amount: overdueBills.reduce((a, b) => a + b.remaining, 0),
+      max_days_overdue: Math.max(0, ...overdueBills.map((b) => b.days_overdue)),
+      paid_on_time: paidOnTime,
+      paid_late: paidLate,
+      avg_days_to_settle:
+        daysCount > 0 ? Math.round((daysSum / daysCount) * 10) / 10 : null,
+      ever_overdue: paidLate > 0 || overdueBills.length > 0,
+      first_credit_at:
+        completed.length > 0
+          ? completed.reduce(
+              (min, b) => (b.created_at < min ? b.created_at : min),
+              completed[0].created_at,
+            )
+          : null,
+      last_payment_at: activePayments.length > 0 ? activePayments[0].paid_at : null,
+    };
+
+    const creditLimit =
+      customer.credit_limit === null || customer.credit_limit === undefined
+        ? null
+        : Number(customer.credit_limit);
+
+    return {
+      customer,
+      summary: {
+        ...summary,
+        credit_limit: creditLimit,
+        credit_available:
+          creditLimit === null ? null : creditLimit - summary.balance,
+      },
+      stats,
+      bills,
+      payments,
+    };
   }
 }
